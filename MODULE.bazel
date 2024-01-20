@@ -1,0 +1,35 @@
+"""triton-core bazel module"""
+module(
+    name = "triton-core",
+    version = "r23.10",
+    compatibility_level = 1,
+)
+
+
+bazel_dep(name = "re2", repo_name = "com_googlesource_code_re2", version = "2021-09-01")
+bazel_dep(name = "triton-common", version = "r23.10")
+bazel_dep(name = "rules_cuda", version = "0.2.1")
+bazel_dep(name = "boost.interprocess", version = "1.83.0.bzl.1")
+bazel_dep(name = "cnmem", version = "1.0.0")
+# bazel_dep(name = "prometheus-cpp", version = "1.2.0")
+
+local_path_override(
+    module_name = "triton-common",
+    path = "/root/code/common",
+)
+local_path_override(
+    module_name = "cnmem",
+    path = "/root/code/cnmem",
+)
+# git_override(
+#     module_name = "prometheus-cpp",
+#     commit = "f25f74b71cc3347bcbd80008478676fa2b1b9a70",
+#     remote = "https://github.com/jupp0r/prometheus-cpp.git",
+# )
+
+cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain", dev_dependency = True)
+cuda.local_toolchain(
+    name = "local_cuda",
+    toolkit_path = "",
+)
+use_repo(cuda, "local_cuda")

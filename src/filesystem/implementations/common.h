@@ -25,7 +25,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
-#include <re2/re2.h>
+#include "re2/re2.h"
 
 #include <cerrno>
 #include <memory>
@@ -52,7 +52,7 @@
 #ifdef _WIN32
 // <sys/stat.h> in Windows doesn't define S_ISDIR macro
 #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
-#define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
+#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #endif
 #define F_OK 0
 #endif

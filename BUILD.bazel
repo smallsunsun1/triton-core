@@ -1,0 +1,127 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "triton-core-api",
+    hdrs = glob([
+        "include/triton/core/*.h",
+        "src/*.h",
+        "src/filesystem/api.h",
+        "src/filesystem/implementations/common.h",
+        "src/filesystem/implementations/local.h",
+    ], exclude = [
+        "src/model_config_cuda.h",
+        "src/cuda_memory_manager.h"
+    ]) + select({
+        "@rules_cuda//cuda:is_enabled": [
+            "src/model_config_cuda.h",
+            "src/cuda_memory_manager.h",
+        ],
+        "//conditions:default": []
+    }),
+    defines = select({
+        "@rules_cuda//cuda:is_enabled": [
+            "TRITON_ENABLE_GPU=1",
+            'TRITON_MIN_COMPUTE_CAPABILITY=60',
+            "TRITON_ENABLE_METRICS_GPU"
+        ],
+    }) + [
+        'TRITON_VERSION=\\"23.10\\"',
+        # "TRITON_ENABLE_METRICS",
+        "TRITON_ENABLE_ENSEMBLE",
+        "TRITON_ENABLE_METRICS_CPU",
+        "TRITON_ENABLE_STATS",
+    ],
+    includes = [
+        "include",
+        "include/triton/core",
+    ],
+    deps = select({
+        "@rules_cuda//cuda:is_enabled": ["@rules_cuda//cuda:runtime"],
+        "//conditions:default": [],
+    }) + [
+        "@triton-common",
+        # "@prometheus-cpp//pull"
+    ]
+)
+
+cc_binary(
+    name = "libtriton-core-stub.so",
+    srcs = [
+        "src/tritonserver_stub.cc",
+    ],
+    deps = [
+        "triton-core-api",
+    ],
+    linkshared = True,
+)
+
+cc_import(
+    name = "triton-core-stub",
+    shared_library = "libtriton-core-stub.so"
+)
+
+cc_library(
+    name = "triton-core",
+    srcs = glob([
+        "src/*.cc"
+    ], exclude = [
+        "src/model_config_cuda.cc",
+        "src/cuda_memory_manager.cc",
+        "src/tritonserver_stub.cc",
+    ]) + select({
+        "@rules_cuda//cuda:is_enabled": [
+            "src/model_config_cuda.cc",
+            "src/cuda_memory_manager.cc",
+        ],
+        "//conditions:default": [],
+    }) + [
+        "src/filesystem/api.cc",
+    ],
+    linkopts = [
+        "-lnuma",
+    ],
+    deps = [
+        "triton-core-api",
+        "@boost.interprocess",
+        "@com_googlesource_code_re2//:re2",
+        "@cnmem",
+    ],
+    alwayslink = True,
+)
+
+version_script_file = "libtritonserver.ldscript"
+
+version_script_output = """
+{
+  global:
+    TRITONSERVER_*;
+    TRITONBACKEND_*;
+    TRITONREPOAGENT_*;
+    TRITONCACHE_*;
+  local: *;
+};
+"""
+
+genrule(
+    name = "gen_version_script",
+    outs = [version_script_file],
+    cmd = "echo '%s' >$@" % version_script_output,
+    visibility = ["//visibility:private",]
+)
+
+cc_binary(
+    name = "tritonserver",
+    linkopts = [
+        "-Wl,--version-script,$(location %s)" % version_script_file,
+    ],
+    linkshared = True,
+    deps = [
+        ":triton-core",
+        version_script_file
+    ],
+)
+
+cc_import(
+    name = "libtritonserver_import",
+    shared_library = "tritonserver"
+)
